@@ -11,7 +11,7 @@ apt update && apt install -y curl python3 python3-pip vnstat jq
 systemctl enable --now vnstat
 
 # 安装 Python 模块
-pip3 install requests
+pip3 install requests --break-system-packages
 
 # 设置目录
 INSTALL_DIR="/opt"
