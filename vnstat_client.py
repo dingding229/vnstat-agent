@@ -7,7 +7,7 @@ import time
 import os
 
 # 配置
-MASTER_URL = "http://<主控端IP或域名>:5000/receive_data"  # 主控端接收数据的URL
+MASTER_URL = "http://47.238.156.150:5000/receive_data"  # 主控端接收数据的URL
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
 def load_config():
