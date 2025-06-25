@@ -6,19 +6,19 @@ import socket
 import os
 from datetime import datetime
 
-# 读取主控地址
+# 读取配置
 ENV_PATH = "/opt/vnstat_agent.env"
 if not os.path.exists(ENV_PATH):
     print("❌ 缺少配置文件 /opt/vnstat_agent.env")
     exit(1)
 
 exec(open(ENV_PATH).read())
+
 if not REPORT_URL:
     print("❌ REPORT_URL 未设置")
     exit(1)
 
-# 获取当前主机名
-hostname = socket.gethostname()
+hostname = os.environ.get("CUSTOM_NAME", socket.gethostname())
 
 
 def get_vnstat_json():
