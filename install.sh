@@ -1,35 +1,64 @@
 #!/bin/bash
+set -euo pipefail
 
-set -e
+# 配置参数
+MASTER_URL由用户输入
+INSTALL_DIR="/root/vnstat_client"
 
-echo "🌐 正在安装 vnstat-agent ..."
+echo "开始安装 vnstat 和依赖..."
 
-# 安装依赖
-apt update && apt install -y curl python3 python3-pip vnstat jq
+# 更新系统并安装 vnstat 和 Python
+apt-get update
+apt-get install -y vnstat python3 python3-pip
 
-# 启动 vnstat（如果未启动）
-systemctl enable --now vnstat
+# 安装 Python 依赖
+pip3 install requests schedule
 
-# 安装 Python 模块
-pip3 install --break-system-packages requests
+# 提示用户输入
+read -p "请输入主控端地址（例如 http://example.com:5000/receive_data）: " MASTER_URL"
+read -p "请输入自定义服务器名称: " SERVER_NAME
+read -p "请输入网络接口（例如 eth0）: " INTERFACE_NAME
 
-# 设置目录
-INSTALL_DIR="/opt"
-SCRIPT_URL="https://raw.githubusercontent.com/YOUR_GITHUB_USER/vnstat-agent/main/vnstat_agent.py"
+# 创建安装目录
+mkdir -p "$INSTALL_DIR"
+cd "$INSTALL_DIR"
 
-# 下载主脚本
-curl -o ${INSTALL_DIR}/vnstat_agent.py -sSL "$SCRIPT_URL"
-chmod +x ${INSTALL_DIR}/vnstat_agent.py
+# 下载被控端脚本
+curl -O https://raw.githubusercontent.com/dingding229/vnstat-agent/refs/heads/main/vnstat_client.py
 
-# 获取主控端地址和自定义名称
-read -p "请输入主控端地址（例如：http://123.123.123.123:5000/report）: " report_url
-read -p "请输入该服务器的自定义名称（例如：日本节点1 或 hk-cn2）: " custom_name
+# 创建配置文件
+cat << EOF > config.json
+{
+    "server_name": "$SERVER_NAME",
+    "interface": "$INTERFACE_NAME"
+}
+EOF
 
-# 写入配置
-echo "REPORT_URL=\"$report_url\"" > ${INSTALL_DIR}/vnstat_agent.env
-echo "CUSTOM_NAME=\"$custom_name\"" >> ${INSTALL_DIR}/vnstat_agent.env
+# 替换脚本中的 MASTER_URL
+sed -i "s|MASTER_URL = \".*\"|MASTER_URL = \"$MASTER_URL\"|" vnstat_client.py
 
-# 设置定时任务（每小时执行）
-(crontab -l 2>/dev/null; echo "0 * * * * /usr/bin/python3 /opt/vnstat_agent.py") | crontab -
+# 设置 vnstat 服务
+vnstatd -d
+systemctl enable vnstat
+systemctl start vnstat
 
-echo "✅ 安装完成！已设置每小时自动上报"
+# 创建 systemd 服务
+cat << EOF > /etc/systemd/system/vnstat-client.service
+[Unit]
+Description=vnStat Client Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 $INSTALL_DIR/vnstat_client.py
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 启用并启动服务
+systemctl enable vnstat-client
+systemctl start vnstat-client
+
+echo "安装完成！vnstat 客户端已启动。"
